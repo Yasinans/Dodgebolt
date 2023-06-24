@@ -1,0 +1,8 @@
+name: Dodgebolt
+version: '${version}'
+main: org.nightazure.dodgebolt.Dodgebolt
+api-version: '1.19'
+commands:
+  dodgebolt:
+    description: Your description
+    usage: /<command>
