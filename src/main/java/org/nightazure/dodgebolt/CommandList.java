@@ -1,5 +1,8 @@
 package org.nightazure.dodgebolt;
 
+import net.md_5.bungee.api.ChatMessageType;
+import net.md_5.bungee.api.chat.BaseComponent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Sound;
@@ -63,18 +66,19 @@ public class CommandList implements CommandExecutor, TabCompleter {
         return true;
     }
 
+
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
             completions.addAll(Arrays.asList("help", "arena", "join", "leave"));
-        }  else if (args.length == 2 && args[0].equalsIgnoreCase("join")) {
+        }  else if (args.length == 2 && args[0].equalsIgnoreCase("join") && sender.hasPermission("dodgebolt.join")) {
             completions.addAll(getReadyArenas());
         } else if (args.length == 2 && args[0].equalsIgnoreCase("arena") && sender.hasPermission("dodgebolt.arena")) {
-            completions.addAll(Arrays.asList("setup", "info", "list", "setarrow", "resetspawn", "addspawn", "remove", "savearena"));
+            completions.addAll(Arrays.asList("setup", "info", "list", "setarrow", "resetspawn", "addspawn", "remove", "savearena","setspectator"));
         } else if (args.length == 3 && args[0].equalsIgnoreCase("arena") && sender.hasPermission("dodgebolt.arena") && (args[1].equalsIgnoreCase("setarrow")
-                || args[1].equalsIgnoreCase("info") || args[1].equalsIgnoreCase("remove") || args[1].equalsIgnoreCase("savearena") || args[1].equalsIgnoreCase("addspawn") || args[1].equalsIgnoreCase("resetspawn"))) {
+                || args[1].equalsIgnoreCase("info") || args[1].equalsIgnoreCase("setspectator") || args[1].equalsIgnoreCase("remove") || args[1].equalsIgnoreCase("savearena") || args[1].equalsIgnoreCase("addspawn") || args[1].equalsIgnoreCase("resetspawn"))) {
             completions.addAll(getReadyArenas());
         } else if (args.length == 4 && args[0].equalsIgnoreCase("arena") && sender.hasPermission("dodgebolt.arena") && (args[1].equalsIgnoreCase("setarrow")
                 || args[1].equalsIgnoreCase("addspawn") || args[1].equalsIgnoreCase("resetspawn"))) {
@@ -97,6 +101,10 @@ public class CommandList implements CommandExecutor, TabCompleter {
     }
 
     private void handleJoinCommand(Player player, String[] args) {
+        if (!player.hasPermission("dodgebolt.join")) {
+            player.sendMessage(ChatColor.RED + "You don't have permission to use this command.");
+            return;
+        }
         if (args.length < 2) {
             player.sendMessage(ChatColor.RED + "Invalid argument! Proper Argument: /dodgebolt join <Arena Name>");
             return;
@@ -170,6 +178,9 @@ public class CommandList implements CommandExecutor, TabCompleter {
             case "resetspawn":
                 handleResetSpawnCommand(player, args);
                 break;
+            case "setspectator":
+                handleSetSpectatorCommand(player, args);
+                break;
             case "savearena":
                 handleSavePlaneCommand(player, args);
                 break;
@@ -190,8 +201,9 @@ public class CommandList implements CommandExecutor, TabCompleter {
         help.append(ChatColor.YELLOW + "-------------- " + ChatColor.RESET + "Dodgebolt Help" + ChatColor.YELLOW + " -----------\n");
         help.append(ChatColor.GOLD + "/dodgebolt arena setup: " + ChatColor.RESET + "Start an arena setup\n");
         help.append(ChatColor.GOLD + "/dodgebolt arena info <Arena Name>: " + ChatColor.RESET + "Get the information of an arena\n");
-        help.append(ChatColor.GOLD + "/dodgebolt arena savearena <Arena Name>: " + ChatColor.RESET + "Save the build data of your arena. (Must do this if you change your arena build)\n");
+        help.append(ChatColor.GOLD + "/dodgebolt arena savearena <Arena Name>: " + ChatColor.RESET + "Save the build data of your arena field. (Must do this if you change your arena build)\n");
         help.append(ChatColor.GOLD + "/dodgebolt arena remove <Arena Name>: " + ChatColor.RESET + "Remove an arena\n");
+        help.append(ChatColor.GOLD + "/dodgebolt arena setspectator <Arena Name>: " + ChatColor.RESET + "Remove an arena\n");
         help.append(ChatColor.GOLD + "/dodgebolt arena resetspawn <Arena Name> (red|blue): " + ChatColor.RESET + "Reset the spawn location/s of a team\n");
         help.append(ChatColor.GOLD + "/dodgebolt arena addspawn <Arena Name> (red|blue): " + ChatColor.RESET + "Add a spawn location to a team at your location\n");
         help.append(ChatColor.GOLD + "/dodgebolt arena setarrow <Arena Name> (red|blue): " + ChatColor.RESET + "Set the arrow location of a team\n");
@@ -224,6 +236,8 @@ public class CommandList implements CommandExecutor, TabCompleter {
         for (Location location : arena.getSpawnLocation(arena.getTeamByName("Blue"))) {
             info.append(ChatColor.RESET + "- " + ChatColor.LIGHT_PURPLE + "x:" + location.x() + ", y:" + location.y() + ", z:" + location.z() + "\n");
         }
+        if(arena.spectatorLocation==null)info.append(ChatColor.GOLD + "Spectator Location: Set your Spectator Location through \"/dodgebolt arena setspectator <Arena Name>\"\n");
+        else info.append(ChatColor.GOLD + "Spectator Location: " + ChatColor.LIGHT_PURPLE + "x:" + arena.spectatorLocation.x() + ", y:" + arena.spectatorLocation.y() + ", z:" + arena.spectatorLocation.z() + "\n");
         info.append(ChatColor.GOLD + "Red Arrow Location: " + ChatColor.LIGHT_PURPLE + "x:" + arena.redArrow.x() + ", y:" + arena.redArrow.y() + ", z:" + arena.redArrow.z() + "\n");
         info.append(ChatColor.GOLD + "Blue Arrow Location: " + ChatColor.LIGHT_PURPLE + "x:" + arena.blueArrow.x() + ", y:" + arena.blueArrow.y() + ", z:" + arena.blueArrow.z() + "\n");
         info.append(ChatColor.GOLD + "Arena Region: \n");
@@ -255,7 +269,23 @@ public class CommandList implements CommandExecutor, TabCompleter {
 
         player.sendMessage(list.toString());
     }
+    private void handleSetSpectatorCommand(Player player, String[] args) {
+        if (args.length < 3) {
+            player.sendMessage(ChatColor.RED + "Invalid argument! Proper Argument: /dodgebolt arena setspectator <Arena Name>");
+            return;
+        }
+        String arenaName = args[2];
+        DodgeboltArena arena = dodge.getArenaByName(arenaName);
+        if (arena == null) {
+            player.sendMessage(ChatColor.RED + "The arena \"" + arenaName + "\" does not exist!");
+            return;
+        }
 
+        arena.setSpectatorLocation(player.getLocation());
+        player.sendMessage(ChatColor.GREEN+"The Spectator Location has been set!");
+        arena.generateConfig(dodge);
+        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+    }
     private void handleSetArrowCommand(Player player, String[] args) {
         if (args.length < 4) {
             player.sendMessage(ChatColor.RED + "Invalid argument! Proper Argument: /dodgebolt arena setarrow <Arena Name> (red/blue)");
@@ -417,7 +447,7 @@ public class CommandList implements CommandExecutor, TabCompleter {
                     "/arenas/"+arena.getName()+".dat");
             if (file2.exists()){
                 try{
-                    file.delete();
+                    file2.delete();
                 } catch (Exception e){}
             }
             dodge.arenas.remove(arena);

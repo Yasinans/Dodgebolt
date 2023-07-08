@@ -15,9 +15,11 @@ import org.bukkit.event.player.*;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 import org.nightazure.dodgebolt.minigame.Team;
 import org.nightazure.dodgebolt.minigame.events.ArenaEndEvent;
+import org.nightazure.dodgebolt.minigame.events.ArenaNextRoundEvent;
 import org.nightazure.dodgebolt.minigame.utils.BroadcastUtil;
 import org.nightazure.dodgebolt.minigame.Arena;
 import org.nightazure.dodgebolt.minigame.events.ArenaStartEvent;
@@ -42,17 +44,36 @@ public class DodgeListener implements Listener {
 
     @EventHandler
     public void onGameEnd(ArenaEndEvent event) {
+        //if there is still rounds or none but no players left cus they quit the game
         DodgeboltArena arena = dodge.getArenaByName(event.getArena().getName());
-        dodgeboltStat.remove(arena);
-        List<Player> players = arena.getPlayers();
-        for (Player player : players) {
-            arena.getPlayerManager().getPlayerInfo(player).loadState(true);
-            player.playSound(player.getLocation(),Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST,1f,1f);
+        Team winner = event.getWinningTeam();
+        dodgeboltStat.get(arena).cancelAllTask();
+        if(event.isWinByQuit() || arena.isScoreMet()) {
+            dodgeboltStat.remove(arena);
+            List<Player> players = arena.getPlayers();
+            for (Player player : players) {
+                arena.getPlayerManager().getPlayerInfo(player).loadState(true);
+                player.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST, 1f, 1f);
+            }
+            EntityUtil.removeEntities(arena.getArenaPos().getKey(), arena.getArenaPos().getValue());
+            arena.broadcastPlayer(ChatColor.GREEN + "The " + ChatColor.BOLD + winner.getColor() + winner.getName() + ChatColor.RESET + ChatColor.GREEN + " team has won the game!", null);
+            arena.getPlayerManager().clearPlayers();
+        } else {
+            dodgeboltStat.get(arena).setEliminatedCount(0);
+            for(GameInventory inventory: dodgeboltStat.get(arena).inventories){
+                inventory.setArrow(0);
+                inventory.setIsOver(false);
+            }
+            List<Player> players = arena.getPlayers();
+            for (Player player : players) {
+                player.playSound(player.getLocation(), Sound.ENTITY_FIREWORK_ROCKET_LARGE_BLAST, 1f, 1f);
+            }
+            EntityUtil.removeEntities(arena.getArenaPos().getKey(), arena.getArenaPos().getValue());
+            if (winner != null){
+                arena.broadcastPlayer(ChatColor.GREEN + "The " + ChatColor.BOLD + winner.getColor() + winner.getName() + ChatColor.RESET + ChatColor.GREEN + " team has won this round!", null);
+            }
+            arena.startArena(true);
         }
-        EntityUtil.removeEntities(arena.getArenaPos().getKey(),arena.getArenaPos().getValue());
-        BlockUtil.deserializeBlocks(arena.getPlaneData());
-        if(event.getWinningTeam()!= null)arena.broadcastPlayer(ChatColor.GREEN + "The " + ChatColor.BOLD+event.getWinningTeam().getColor() + event.getWinningTeam().getName() + ChatColor.RESET+ChatColor.GREEN + " team has won the game!", null);
-        arena.getPlayerManager().clearPlayers();
 
     }
 
@@ -67,7 +88,17 @@ public class DodgeListener implements Listener {
         }
         startTimer(dodge.getArenaByName(arena.getName()));
     }
-
+    @EventHandler
+    public void onNextRound(ArenaNextRoundEvent event) {
+        Arena arena = event.getArena();
+        EntityUtil.removeEntities(arena.getArenaPos().getKey(),arena.getArenaPos().getValue());
+        dodgeboltStat.put(arena, new DodgeboltStatus());
+        for (Player player : arena.getPlayers()) {
+            player.getInventory().setItem(0, new ItemStack(Material.BOW));
+            dodgeboltStat.get(arena).inventories.add(new GameInventory(player, 0));
+        }
+        startTimer(dodge.getArenaByName(arena.getName()));
+    }
     @EventHandler
     public void onPlayerDamage(EntityDamageByEntityEvent event) {
         if(event.getEntity() instanceof Player victim) {
@@ -131,7 +162,7 @@ public class DodgeListener implements Listener {
                     player.sendMessage(ChatColor.RED + "You can't drop your bow!");
                     player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_DESTROY, 1.0f, 1.0f);
                     event.setCancelled(true);
-                } else if(event.getItemDrop().getItemStack().equals(new ItemStack(Material.ARROW))){
+                } else if(event.getItemDrop().getItemStack().getType().equals(Material.ARROW)){
                         new BukkitRunnable() {
                             int count = 5;
                             @Override
@@ -143,7 +174,9 @@ public class DodgeListener implements Listener {
                                         Team playerTeam = arena.getPlayerTeam(player);
                                         Team targetTeam = playerTeam.getName().equals("Red") ?
                                                 arena.getTeamByName("Blue") : arena.getTeamByName("Red");
-                                        arena.dropArrow(targetTeam);
+                                        for (int i = 0; i < event.getItemDrop().getItemStack().getAmount(); i++){
+                                            arena.dropArrow(targetTeam);
+                                        }
                                         event.getItemDrop().remove();
                                     }
                                     cancel();
@@ -162,6 +195,13 @@ public class DodgeListener implements Listener {
         if (containsPlayer(event.getPlayer())) {
             DodgeboltArena arena = getArena(player);
             if (arena.getStatus() == 3) {
+                if(arena.isSpectator(player)){
+                    if(!LocationUtil.isInside(arena.getArenaPos().getKey(), arena.getArenaPos().getValue(), player.getLocation())){
+                        player.sendMessage(ChatColor.RED+"You can't leave this arena!");
+                        player.teleport(arena.getSpectatorLocation());
+                    }
+                    return;
+                }
                 Team playerTeam = arena.getPlayerTeam(player);
                 GameInventory playerInventory = getPlayerInventory(arena, player);
                 if((arena.planeArea.getKey().y()-4)>player.getLocation().y()){
@@ -219,7 +259,11 @@ public class DodgeListener implements Listener {
                     }
                 }
             } else if (arena.getStatus() == 2) {
-                event.setCancelled(true);
+                if (event.getFrom().getBlockX() != event.getTo().getBlockX()
+                        || event.getFrom().getBlockY() != event.getTo().getBlockY()
+                        || event.getFrom().getBlockZ() != event.getTo().getBlockZ()) {
+                    event.setCancelled(true);
+                }
             }
         }
     }
@@ -254,22 +298,23 @@ public class DodgeListener implements Listener {
             BroadcastUtil.titleBroadcast(ChatColor.RED + "" + ChatColor.BOLD + "The arena is shrinking!", "", arena.getPlayers());
             int offset = dodgeboltStat.get(arena).getEliminatedCount();
             dodgeboltStat.get(arena).setEliminatedCount(offset + 1);
-            new BukkitRunnable() {
+            BukkitTask runnable = new BukkitRunnable() {
                 int count = 15;
 
                 @Override
                 public void run() {
+                    if(isCancelled())cancel();
                     if (count <= 0) {
                         for (Player p : arena.getPlayers()) {
                             p.playSound(p.getLocation(), Sound.ENTITY_GENERIC_EXPLODE, 1f, 1f);
                         }
-                        List<Block> blocks = BlockUtil.changeBlockSides(arena.planeArea.getKey(), arena.planeArea.getValue(), Material.AIR, 0);
+                        List<Block> blocks = BlockUtil.changeBlockSides(arena.planeArea.getKey(), arena.planeArea.getValue(), Material.AIR, offset);
                         for (Block block : blocks) {
                             block.getWorld().spawnParticle(Particle.EXPLOSION_LARGE, block.getLocation(), 0);
                         }
                         cancel();
                     } else if (count == 14) {
-                        BlockUtil.changeBlockSides(arena.planeArea.getKey(), arena.planeArea.getValue(), Material.OBSIDIAN, 0);
+                        BlockUtil.changeBlockSides(arena.planeArea.getKey(), arena.planeArea.getValue(), Material.OBSIDIAN, offset);
                         for (Player p : arena.getPlayers()) {
                             p.playSound(p.getLocation(), Sound.ENTITY_TNT_PRIMED, 1f, 1f);
                         }
@@ -281,6 +326,7 @@ public class DodgeListener implements Listener {
                     count--;
                 }
             }.runTaskTimer(dodge, 0, 6);
+            dodgeboltStat.get(arena).shrinkingArena.add(runnable);
         }
     }
     public void startTimer(DodgeboltArena arena) {
@@ -321,7 +367,7 @@ public class DodgeListener implements Listener {
         Location location = player.getLocation();
         location.setY(location.getY() + 2);
         Firework firework = player.getWorld().spawn(location, Firework.class);
-        FireworkMeta data = (FireworkMeta) firework.getFireworkMeta();
+        FireworkMeta data = firework.getFireworkMeta();
         data.addEffects(FireworkEffect.builder().withColor(Color.RED).withTrail().with(FireworkEffect.Type.BALL).build());
         data.setPower(0);
         firework.setFireworkMeta(data);
@@ -383,10 +429,17 @@ public class DodgeListener implements Listener {
     }
     public class DodgeboltStatus{
         public List<GameInventory> inventories;
+        public List<BukkitTask> shrinkingArena;
         int eliminatedCount;
         public DodgeboltStatus(){
+            this.shrinkingArena = new ArrayList<>();
             this.inventories = new ArrayList<>();
             eliminatedCount = 0;
+        }
+        void cancelAllTask(){
+            for(BukkitTask tasks: shrinkingArena){
+                tasks.cancel();
+            }
         }
         int getEliminatedCount(){
             return eliminatedCount;

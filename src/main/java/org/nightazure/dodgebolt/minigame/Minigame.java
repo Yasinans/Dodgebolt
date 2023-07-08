@@ -14,7 +14,7 @@ public class Minigame {
     private String name;
     private int waitingTime;
     private int teamNum;
-    private int rounds = 1;
+    private int bestOfNum = 1;
     public List<Team> teams = new ArrayList<>();
     public Minigame(int teamNum, String name, Plugin plugin) {
         if (teamNum <= 0){
@@ -26,12 +26,18 @@ public class Minigame {
         this.teamNum = teamNum;
         this.name = name;
     }
-    public void setRounds(int rounds){
+    public Plugin getPlugin() {
+        return plugin;
+    }
+    public void setBestOfNum(int rounds){
         if(rounds <= 0){
             throw new IllegalArgumentException("Invalid round numbers in config");
         } else{
-            this.rounds = rounds;
+            this.bestOfNum = rounds;
         }
+    }
+    public int getBestOfNum(){
+        return bestOfNum;
     }
     public int getWaitingTime(){
         return waitingTime;
@@ -86,7 +92,7 @@ public class Minigame {
     }
     public Arena createArena(int id, String name, boolean onHoldSystem, int waitingTime) {
         if(checkReady()){
-            Arena arena = new Arena(name, this.teams, onHoldSystem, waitingTime, plugin);
+            Arena arena = new Arena(name, this.teams, onHoldSystem, waitingTime, this);
             arenaList.add(arena);
         }
         throw new RuntimeException("Minigame is not ready. Please check your team");

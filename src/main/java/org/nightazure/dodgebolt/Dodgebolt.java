@@ -32,8 +32,8 @@ public final class Dodgebolt extends JavaPlugin {
         this.arenas = new ArrayList<>();
         this.minigame = new Minigame(2, "Dodgebolt", this);
         this.minigame.setWaitingTime(30);
-        this.minigame.setRounds(1);
         this.disableShrink = false;
+        this.minigame.setBestOfNum(3);
         this.allowTeamPass = true;
         this.firstTeam = this.minigame.addTeam("Red", 3, 1 , true);
         this.secondTeam = this.minigame.addTeam("Blue", 3, 1 , true);
@@ -59,11 +59,12 @@ public final class Dodgebolt extends JavaPlugin {
                 for (Player player : players) {
                     arena.getPlayerManager().getPlayerInfo(player).loadState(true);
                 }
-                BlockUtil.deserializeBlocks(arena.getPlaneData());
+                BlockUtil.deserializeBlocks(arena.getArenaData());
                 arena.getPlayerManager().clearPlayers();
                 arena.setStatus(0);
                 for (Team team : arena.teams.keySet()) {
                     team.clearPlayer(false);
+                    team.setScore(0);
                 }
             }
         }
@@ -98,6 +99,9 @@ public final class Dodgebolt extends JavaPlugin {
                                 LocationUtil.deserializeSimple(arenaConfig.getString("redArrow")),
                                 LocationUtil.deserializeSimple(arenaConfig.getString("blueArrow")),
                                 this.minigame.getWaitingTime(), this);
+                        if(arenaConfig.getString("spectatorLocation")!=null){
+                            arena.setSpectatorLocation(LocationUtil.deserializeSimple(arenaConfig.getString("spectatorLocation")));
+                        }
                         for (String serializedLocation : arenaConfig.getStringList("spawnLocation.red")) {
                             arena.addSpawnLocation(arena.getTeamByName("Red"), LocationUtil.deserializeFully(serializedLocation));
                         }
@@ -126,6 +130,7 @@ public final class Dodgebolt extends JavaPlugin {
             Config configuration = new Config("config", null, this);
             configuration.setup();
             configuration.get().addDefault("waiting", 30);
+            configuration.get().addDefault("bestOf", 3);
             configuration.get().addDefault("allowTeamPass", true);
             configuration.get().addDefault("maxPlayer", 3);
             configuration.get().addDefault("disableShrink", false);
@@ -137,6 +142,7 @@ public final class Dodgebolt extends JavaPlugin {
             this.allowTeamPass = gameConfig.getBoolean("allowTeamPass");
             int maxPlayer = gameConfig.getInt("maxPlayer");
             int minPlayer = gameConfig.getInt("minPlayer");
+            this.minigame.setBestOfNum(gameConfig.getInt("bestOf"));
             this.disableShrink = gameConfig.getBoolean("disableShrink");
             if (minPlayer <= 0 || minPlayer > maxPlayer) {
                 throw new RuntimeException("There is a error in the config! Changing back to default.");
@@ -153,6 +159,7 @@ public final class Dodgebolt extends JavaPlugin {
         Config configuration = new Config("config", null, this);
         configuration.setup();
         configuration.get().set("disableShrink", false);
+        configuration.get().set("bestOf", 3);
         configuration.get().set("waiting", 30);
         configuration.get().set("allowTeamPass", true);
         configuration.get().set("maxPlayer", 3);

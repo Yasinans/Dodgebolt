@@ -101,13 +101,13 @@ public class ArenaSetup implements Listener {
                     firstPos.setY(-256);
                     secondPos.setY(256);
                     this.secondTeam = new AbstractMap.SimpleEntry<>(firstPos, secondPos);
-                    response.append(ChatColor.YELLOW + "\nLet's proceed with setting the plane area. \n"+ ChatColor.LIGHT_PURPLE +"Please break a block where the first position would be. \n");
+                    response.append(ChatColor.YELLOW + "\nLet's proceed with setting the Arena Field. \n"+ ChatColor.LIGHT_PURPLE +"Please break a block where the first position would be. \n");
                     step = 10;
                 }
                 break;
             case 12:
                 if (message.equalsIgnoreCase("reset")) {
-                    response.append(ChatColor.YELLOW + "\nLet's proceed with setting the plane area. \n"+ ChatColor.LIGHT_PURPLE +"Please break a block where the first position would be. \n");
+                    response.append(ChatColor.YELLOW + "\nLet's proceed with setting the Arena Field. \n"+ ChatColor.LIGHT_PURPLE +"Please break a block where the first position would be. \n");
                     step = 10;
                 } else {
                     response.append(ChatColor.YELLOW + "\nNow let's set the Arrow Spawn Location for each team.\n");
@@ -154,13 +154,24 @@ public class ArenaSetup implements Listener {
                     Team blue = arena.getTeamByName("Blue");
                     arena.addSpawnLocation(blue, player.getLocation());
                     if (arena.getSpawnLocation(blue).size() == blue.maxPlayer) {
-                        response.append(ChatColor.YELLOW + "The arena is done with setup\n");
-                        event.setCancelled(true);
-                        dodgebolt.addArena(arena);
+                        response.append(ChatColor.YELLOW + "\nSpawn Locations for Blue Team is Done. Now let's set the Spectator Location.\n");
+                        response.append(ChatColor.LIGHT_PURPLE + "\nSay "+ChatColor.GREEN+ChatColor.BOLD+"SET"+ChatColor.RESET+ChatColor.LIGHT_PURPLE+" to set the Spectator Location");
                         step = 17;
                     } else {
                         int remaining = blue.maxPlayer - arena.getSpawnLocation(blue).size();
                         response.append(ChatColor.YELLOW + "\nNew location has been added for the Blue Team. " + remaining + " more remaining!\n" + ChatColor.GOLD + "\n Say "+ChatColor.GREEN+ChatColor.BOLD+"SET"+ChatColor.RESET+ChatColor.LIGHT_PURPLE+" to add a Spawn Location for the Blue team");
+                    }
+                }
+                break;
+            case 17:
+                if (message.equalsIgnoreCase("set")) {
+                    if (arena.setSpectatorLocation(player.getLocation())) {
+                        response.append(ChatColor.YELLOW + "Congratulations! The arena is done with the setup.\n\nIf there are any increase with the max player in the config, you must add new spawn location for both teams.");
+                        event.setCancelled(true);
+                        dodgebolt.addArena(arena);
+                        step = 18;
+                    } else {
+                        response.append(ChatColor.RED + "The spectator location must be set inside the arena!\n");
                     }
                 }
                 break;

@@ -1,6 +1,7 @@
 package org.nightazure.dodgebolt.minigame.utils;
 
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -47,6 +48,7 @@ public class PlayerManagement {
         ItemStack[] inventoryContents;
         ItemStack[] armorContents;
         ItemStack offhand;
+        GameMode playerGamemode;
         int experience;
         public PlayerInfo(Player p){
             this.player = p.getUniqueId();
@@ -57,6 +59,7 @@ public class PlayerManagement {
 
         public void saveState(){
             this.location = Bukkit.getPlayer(this.player).getLocation().clone();
+            this.playerGamemode = Bukkit.getPlayer(this.player).getGameMode();
             this.inventoryContents = Bukkit.getPlayer(this.player).getInventory().getContents().clone();
             this.armorContents = Bukkit.getPlayer(this.player).getInventory().getArmorContents().clone();
             this.offhand = Bukkit.getPlayer(this.player).getInventory().getItemInOffHand().clone();
@@ -72,7 +75,7 @@ public class PlayerManagement {
             player.setLevel(0);
             player.setExp(0);
             player.giveExp(this.experience);  // Set the player's XP directly
-
+            player.setGameMode(playerGamemode);
             player.getInventory().setContents(this.inventoryContents);
             player.getInventory().setArmorContents(this.armorContents);
             player.getInventory().setItemInOffHand(this.offhand);

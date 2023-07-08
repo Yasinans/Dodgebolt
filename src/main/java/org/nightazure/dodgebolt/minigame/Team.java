@@ -12,8 +12,8 @@ public class Team {
     public Integer maxPlayer;
     public Integer minPlayer;
     private Boolean uniqueSpawn;
+    private int score;
     private List<Player> players = new ArrayList<Player>();
-
     public Boolean isUniqueSpawn(){
         return uniqueSpawn;
     }
@@ -30,6 +30,12 @@ public class Team {
         this.maxPlayer = maxPlayers;
         this.minPlayer = minPlayers;
         this.uniqueSpawn = uniqueSpawn;
+    }
+    public void setScore(int score){
+        this.score = score;
+    }
+    public int getScore(){
+        return score;
     }
     public ChatColor getColor(){
         return color;

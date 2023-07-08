@@ -4,5 +4,9 @@ main: org.nightazure.dodgebolt.Dodgebolt
 api-version: '1.19'
 commands:
   dodgebolt:
-    description: Your description
+    description: Dodgebolt commands
     usage: /<command>
+permissions:
+  dodgebolt.join:
+    description: Allows access to the /dodgebolt join command.
+    default: true

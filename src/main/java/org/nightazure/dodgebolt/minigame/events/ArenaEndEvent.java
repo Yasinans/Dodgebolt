@@ -12,9 +12,11 @@ public class ArenaEndEvent extends Event {
 
     Arena arena;
     Team winningTeam;
-    public ArenaEndEvent(Arena arena, Team winningTeam){
+    boolean isQuit;
+    public ArenaEndEvent(Arena arena, Team winningTeam, boolean isQuit){
         this.arena = arena;
         this.winningTeam = winningTeam;
+        this.isQuit = isQuit;
 
     }
     public Arena getArena(){
@@ -22,6 +24,9 @@ public class ArenaEndEvent extends Event {
     }
     public Team getWinningTeam(){
         return winningTeam;
+    }
+    public boolean isWinByQuit(){
+        return isQuit;
     }
     public @NotNull HandlerList getHandlers() {
         return handlers;
